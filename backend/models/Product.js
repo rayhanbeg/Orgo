@@ -46,6 +46,22 @@ const productSchema = new mongoose.Schema(
       default: 0,
     },
     tags: [String],
+    benefits: {
+      type: String,
+      default: '',
+    },
+    ingredients: {
+      type: String,
+      default: '',
+    },
+    usage: {
+      type: String,
+      default: '',
+    },
+    shipping: {
+      type: String,
+      default: '',
+    },
     certified: {
       type: Boolean,
       default: false,

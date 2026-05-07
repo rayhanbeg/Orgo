@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import reviewService from '../../services/reviewService'
 
 function ReviewCard({ review, onMarkHelpful, canDelete = false, onDelete }) {
@@ -22,91 +22,71 @@ function ReviewCard({ review, onMarkHelpful, canDelete = false, onDelete }) {
     }
   }
 
-  const renderStars = (rating) => {
-    return Array.from({ length: 5 }).map((_, i) => (
-      <span key={i} style={{ color: i < rating ? '#FCD34D' : '#D1D5DB' }}>
+  const renderStars = (rating) =>
+    Array.from({ length: 5 }).map((_, i) => (
+      <span key={i} className={i < rating ? 'text-neutral-950' : 'text-neutral-300'}>
         ★
       </span>
     ))
-  }
 
   return (
-    <div style={{ borderBottom: '1px solid #E5E7EB', paddingBottom: '16px', marginBottom: '16px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+    <article className="rounded-3xl border border-neutral-200 bg-white p-5">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <p style={{ fontWeight: 'bold', color: '#1F2937', margin: '0 0 4px 0' }}>{review.title}</p>
-          <div style={{ fontSize: '14px', color: '#6B7280', margin: '0 0 8px 0' }}>
-            {renderStars(review.rating)}
-            <span style={{ marginLeft: '8px' }}>
-              {review.rating.toFixed(1)} out of 5
-            </span>
+          <p className="text-sm font-semibold text-neutral-950">{review.title}</p>
+          <div className="mt-2 flex items-center gap-3 text-sm text-neutral-500">
+            <div className="flex gap-1">{renderStars(review.rating)}</div>
+            <span>{review.rating.toFixed(1)} / 5</span>
           </div>
         </div>
+
         {canDelete && (
           <button
             onClick={() => onDelete(review._id)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#EF4444',
-              cursor: 'pointer',
-              fontSize: '14px',
-            }}
+            className="text-xs font-semibold uppercase tracking-[0.25em] text-red-500 hover:text-red-700 transition"
           >
             Delete
           </button>
         )}
       </div>
 
-      <p style={{ color: '#4B5563', fontSize: '14px', margin: '0 0 12px 0', lineHeight: '1.6' }}>
-        {review.comment}
-      </p>
+      <p className="mt-4 text-sm leading-7 text-neutral-600">{review.comment}</p>
 
-      <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px', display: 'flex', gap: '16px' }}>
-        <span>
-          <strong>{review.userId?.name || 'Anonymous'}</strong>
-        </span>
+      <div className="mt-5 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.2em] text-neutral-500">
+        <span className="font-semibold text-neutral-950">{review.userId?.name || 'Anonymous'}</span>
         {review.verified && (
-          <span style={{ color: '#059669', fontWeight: 'bold' }}>
-            ✓ Verified Buyer
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">
+            Verified buyer
           </span>
         )}
-        <span>
-          {new Date(review.createdAt).toLocaleDateString()}
-        </span>
+        <span>{new Date(review.createdAt).toLocaleDateString()}</span>
       </div>
 
-      <div style={{ display: 'flex', gap: '16px', fontSize: '14px' }}>
+      <div className="mt-5 flex flex-wrap gap-3">
         <button
           onClick={() => handleMarkHelpful(true)}
           disabled={loading || isHelpful !== null}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: isHelpful === true ? '#059669' : '#6B7280',
-            fontWeight: isHelpful === true ? 'bold' : 'normal',
-            opacity: loading ? 0.6 : 1,
-          }}
+          className={`rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition ${
+            isHelpful === true
+              ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+              : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-950 hover:text-neutral-950'
+          }`}
         >
-          👍 Helpful ({review.helpful})
+          Helpful ({review.helpful})
         </button>
         <button
           onClick={() => handleMarkHelpful(false)}
           disabled={loading || isHelpful !== null}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: isHelpful === false ? '#EF4444' : '#6B7280',
-            fontWeight: isHelpful === false ? 'bold' : 'normal',
-            opacity: loading ? 0.6 : 1,
-          }}
+          className={`rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition ${
+            isHelpful === false
+              ? 'border-rose-600 bg-rose-50 text-rose-700'
+              : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-950 hover:text-neutral-950'
+          }`}
         >
-          👎 Not helpful ({review.notHelpful})
+          Not helpful ({review.notHelpful})
         </button>
       </div>
-    </div>
+    </article>
   )
 }
 

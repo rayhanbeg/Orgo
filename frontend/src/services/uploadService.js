@@ -3,7 +3,7 @@ import api from './api'
 const uploadProductImage = async (file) => {
   try {
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('image', file)
 
     const response = await api.post('/products/upload', formData, {
       headers: {

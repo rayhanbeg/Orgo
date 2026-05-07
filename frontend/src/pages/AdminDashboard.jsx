@@ -1,212 +1,470 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import adminService from '../services/adminService'
+import orderService from '../services/orderService'
+import productService from '../services/productService'
+import MetricCard from '../components/admin/MetricCard'
+import SimpleChart from '../components/admin/SimpleChart'
+import AdminTable from '../components/admin/AdminTable'
+import AdminSidebar from '../components/admin/AdminSidebar'
+import AdminHeader from '../components/admin/AdminHeader'
+import RecentOrdersCard from '../components/admin/RecentOrdersCard'
+import OrderDetailsModal from '../components/admin/OrderDetailsModal'
+import {
+  ChartIcon,
+  MoneyIcon,
+  OrdersIcon,
+  ProductsIcon,
+} from '../components/common/Icons'
+
+const VALID_TABS = ['overview', 'orders', 'products', 'customers', 'settings']
 
 function AdminDashboard() {
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab')
+
   const [stats, setStats] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [orderStats, setOrderStats] = useState(null)
+  const [products, setProducts] = useState([])
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(() => (
+    VALID_TABS.includes(initialTab) ? initialTab : 'overview'
+  ))
+  const [savingOrderId, setSavingOrderId] = useState(null)
+  const [sortOrdersBy, setSortOrdersBy] = useState('date-desc')
+  const [sortProductsBy, setSortProductsBy] = useState('name')
+  const [filterOrderStatus, setFilterOrderStatus] = useState('all')
+  const [selectedOrder, setSelectedOrder] = useState(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  const fetchData = async () => {
+    try {
+      const [dashboard, orderSummary, productList, orderList] = await Promise.all([
+        adminService.getDashboardStats(),
+        adminService.getOrderStats(),
+        productService.getAllProducts(),
+        orderService.getAllOrders(),
+      ])
+
+      setStats(dashboard)
+      setOrderStats(orderSummary)
+      setProducts(productList.products || [])
+      setOrders(orderList.orders || [])
+      setError(null)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load dashboard data')
+    }
+  }
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      await fetchData()
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await adminService.getDashboardStats()
-        setStats(data)
-      } catch (err) {
-        setError('Failed to load dashboard stats')
-      } finally {
-        setLoading(false)
-      }
-    }
+    const timer = setTimeout(() => {
+      void fetchData()
+    }, 0)
 
-    fetchStats()
+    return () => clearTimeout(timer)
   }, [])
 
-  if (loading) {
+  useEffect(() => {
+    if (searchParams.get('tab') !== activeTab) {
+      setSearchParams({ tab: activeTab }, { replace: true })
+    }
+  }, [activeTab])
+
+  const monthlyData = useMemo(() => orderStats?.ordersByMonth || [], [orderStats])
+  const chartData = useMemo(() => monthlyData.map((m) => m.totalAmount || 0).slice(-12), [monthlyData])
+  const chartLabels = useMemo(() => monthlyData.map((m) => m._id?.slice(5) || '').slice(-12), [monthlyData])
+
+  const handleUpdateOrderStatus = async (orderId, orderStatus) => {
+    try {
+      setSavingOrderId(orderId)
+      await orderService.updateOrderStatus(orderId, orderStatus)
+      await loadData()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update order status')
+    } finally {
+      setSavingOrderId(null)
+    }
+  }
+
+  const handleDeleteProduct = async (productId) => {
+    if (!window.confirm('Delete this product?')) return
+    try {
+      await productService.deleteProduct(productId)
+      await loadData()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete product')
+    }
+  }
+
+  const handleViewOrderDetails = (order) => {
+    setSelectedOrder(order)
+    setIsModalOpen(true)
+  }
+
+  const handleModalStatusChange = async (orderId, newStatus) => {
+    try {
+      await orderService.updateOrderStatus(orderId, newStatus)
+      await loadData()
+      setIsModalOpen(false)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update order status')
+    }
+  }
+
+  const getSortedOrders = () => {
+    let filtered = orders
+    if (filterOrderStatus !== 'all') {
+      filtered = orders.filter((o) => o.orderStatus === filterOrderStatus)
+    }
+
+    const sorted = [...filtered]
+    if (sortOrdersBy === 'date-desc') {
+      sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    } else if (sortOrdersBy === 'date-asc') {
+      sorted.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    } else if (sortOrdersBy === 'amount-desc') {
+      sorted.sort((a, b) => b.totalAmount - a.totalAmount)
+    } else if (sortOrdersBy === 'amount-asc') {
+      sorted.sort((a, b) => a.totalAmount - b.totalAmount)
+    }
+    return sorted
+  }
+
+  const getSortedProducts = () => {
+    const sorted = [...products]
+    if (sortProductsBy === 'name') {
+      sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    } else if (sortProductsBy === 'price-asc') {
+      sorted.sort((a, b) => a.price - b.price)
+    } else if (sortProductsBy === 'price-desc') {
+      sorted.sort((a, b) => b.price - a.price)
+    } else if (sortProductsBy === 'stock-asc') {
+      sorted.sort((a, b) => (a.stock ?? 0) - (b.stock ?? 0))
+    } else if (sortProductsBy === 'stock-desc') {
+      sorted.sort((a, b) => (b.stock ?? 0) - (a.stock ?? 0))
+    }
+    return sorted
+  }
+
+  if (error) {
     return (
-      <div className="bg-light py-8">
-        <div className="container mx-auto px-4 text-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md px-6 text-center">
+          <p className="mb-4 text-red-600">{error}</p>
+          <button onClick={loadData} className="btn-primary">
+            RETRY
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading || !stats || !orderStats) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-black" />
           <p className="text-gray-600">Loading dashboard...</p>
         </div>
       </div>
     )
   }
 
-  if (error) {
-    return (
-      <div className="bg-light py-8">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-red-600">{error}</p>
-        </div>
-      </div>
-    )
-  }
+  const recentOrders = stats?.recentOrders || []
+  const totalStats = stats?.stats || {}
+
+  const productColumns = [
+    { key: 'name', label: 'PRODUCT', render: (val) => val || 'N/A' },
+    { key: 'price', label: 'PRICE', render: (val) => `৳${Number(val || 0).toFixed(2)}` },
+    { key: 'category', label: 'CATEGORY', render: (val) => val || 'Uncategorized' },
+    { key: 'stock', label: 'STOCK', render: (val) => val ?? 0 },
+  ]
+
+  const orderColumns = [
+    { key: '_id', label: 'ORDER', render: (val) => val?.slice(-6).toUpperCase() || 'N/A' },
+    {
+      key: 'shippingAddress',
+      label: 'CUSTOMER',
+      render: (val) => `${val?.firstName || 'Guest'} ${val?.lastName || ''}`.trim() || 'Guest',
+    },
+    { key: 'totalAmount', label: 'AMOUNT', render: (val) => `৳${Number(val || 0).toFixed(2)}` },
+    {
+      key: 'orderStatus',
+      label: 'STATUS',
+      render: (val) => {
+        const statusColors = {
+          pending: 'bg-yellow-100 text-yellow-800',
+          processing: 'bg-blue-100 text-blue-800',
+          shipped: 'bg-purple-100 text-purple-800',
+          delivered: 'bg-green-100 text-green-800',
+          cancelled: 'bg-red-100 text-red-800',
+        }
+
+        return (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              statusColors[val?.toLowerCase()] || 'bg-gray-100 text-gray-800'
+            }`}
+          >
+            {val || 'PENDING'}
+          </span>
+        )
+      },
+    },
+  ]
 
   return (
-    <div className="bg-white min-h-screen flex">
-      {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-bold text-black">NATURE ADMIN</h2>
-        </div>
-        <nav className="space-y-2 p-4">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition ${
-              activeTab === 'overview'
-                ? 'bg-black text-white'
-                : 'text-gray-600 hover:text-black'
-            }`}
-          >
-            DASHBOARD
-          </button>
-          <div className="text-xs font-bold text-gray-600 tracking-wide px-4 mt-6 mb-2">MAIN</div>
-          <button
-            onClick={() => setActiveTab('orders')}
-            className={`w-full text-left px-4 py-2 text-sm transition flex items-center justify-between ${
-              activeTab === 'orders'
-                ? 'text-black font-semibold'
-                : 'text-gray-600 hover:text-black'
-            }`}
-          >
-            ORDERS
-            {activeTab === 'orders' && <span className="bg-red-600 text-white text-xs px-2 py-1 rounded-full">12</span>}
-          </button>
-          <button
-            onClick={() => setActiveTab('products')}
-            className={`w-full text-left px-4 py-2 text-sm transition ${
-              activeTab === 'products'
-                ? 'text-black font-semibold'
-                : 'text-gray-600 hover:text-black'
-            }`}
-          >
-            PRODUCTS
-          </button>
-          <button className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:text-black transition">
-            CUSTOMERS
-          </button>
-          <button className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:text-black transition">
-            ANALYTICS
-          </button>
-          <button className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:text-black transition">
-            SETTINGS
-          </button>
-        </nav>
-        
-        {/* Admin Info */}
-        <div className="absolute bottom-4 left-4 right-4 pt-4 border-t border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center font-bold text-white">
-              A
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-black">Admin User</p>
-              <p className="text-xs text-gray-600">Superadmin</p>
+    <div className="min-h-screen bg-[#faf9f7] lg:pl-64">
+      <AdminSidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        ordersCount={orders.length}
+        productsCount={products.length}
+      />
+
+      <div className="min-h-screen bg-[#faf9f7]">
+        <AdminHeader
+          title={
+            activeTab === 'overview' ? 'DASHBOARD OVERVIEW'
+              : activeTab === 'orders' ? 'ORDERS'
+                : activeTab === 'products' ? 'PRODUCTS'
+                  : activeTab === 'customers' ? 'CUSTOMERS'
+                    : 'ANALYTICS'
+          }
+          actionButton={activeTab === 'products' ? { label: 'Add Product', onClick: () => navigate('/admin/products/new') } : null}
+          onRefresh={loadData}
+          isLoading={loading}
+        />
+
+        {error && (
+          <div className="mx-4 mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 sm:mx-6 lg:mx-8">
+            {error}
+            <button onClick={loadData} className="ml-4 font-semibold underline">
+              Retry
+            </button>
+          </div>
+        )}
+
+        {loading || !stats || !orderStats ? (
+          <div className="flex min-h-[24rem] items-center justify-center bg-[#faf9f7]">
+            <div className="text-center">
+              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#e5ddd2] border-t-[#2d7c5f]" />
+              <p className="text-gray-600">Loading dashboard...</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 bg-white">
-        {/* Top Bar */}
-        <div className="border-b border-gray-200 px-8 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-black">OVERVIEW</h1>
-          <div className="flex items-center gap-4">
-            <div className="w-3 h-3 bg-red-600 rounded-full"></div>
-            <span className="text-sm text-gray-600">OCT 24, 2024</span>
-          </div>
-        </div>
-
-        {/* Content */}
-        {activeTab === 'overview' && (
-          <div className="p-8">
-            {/* Metrics */}
-            <div className="grid md:grid-cols-4 gap-6 mb-12">
-              <div className="border border-gray-200 p-6 rounded-lg">
-                <h3 className="text-xs font-bold text-gray-600 mb-3 tracking-wide">TOTAL REVENUE</h3>
-                <p className="text-3xl font-bold text-black mb-2">$45,231.89</p>
-                <p className="text-sm text-green-600">+20.1% from last month</p>
-              </div>
-              <div className="border border-gray-200 p-6 rounded-lg">
-                <h3 className="text-xs font-bold text-gray-600 mb-3 tracking-wide">ORDERS</h3>
-                <p className="text-3xl font-bold text-black mb-2">+573</p>
-                <p className="text-sm text-green-600">+12.5% from last month</p>
-              </div>
-              <div className="border border-gray-200 p-6 rounded-lg">
-                <h3 className="text-xs font-bold text-gray-600 mb-3 tracking-wide">ACTIVE CUSTOMERS</h3>
-                <p className="text-3xl font-bold text-black mb-2">2,350</p>
-                <p className="text-sm text-red-600">-2.1% from last month</p>
-              </div>
-              <div className="border border-gray-200 p-6 rounded-lg">
-                <h3 className="text-xs font-bold text-gray-600 mb-3 tracking-wide">CONVERSION RATE</h3>
-                <p className="text-3xl font-bold text-black mb-2">3.2%</p>
-                <p className="text-sm text-green-600">+0.5% from last month</p>
-              </div>
-            </div>
-
-            {/* Chart & Recent Orders */}
-            <div className="grid lg:grid-cols-3 gap-8">
-              {/* Chart Placeholder */}
-              <div className="lg:col-span-2 border border-gray-200 p-6 rounded-lg">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-lg font-bold text-black">REVENUE OVERVIEW</h2>
-                  <select className="px-3 py-2 border border-gray-300 rounded text-sm">
-                    <option>THIS YEAR</option>
-                  </select>
+        ) : (
+          <>
+            {activeTab === 'overview' && (
+              <div className="space-y-8 bg-[#faf9f7] p-4 sm:p-6 lg:p-8">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+                  <MetricCard
+                    title="TOTAL REVENUE"
+                    value={`৳${Number(totalStats.totalRevenue || 0).toFixed(2)}`}
+                    trend="Total earnings"
+                    trendDirection="up"
+                    trendPercent={12}
+                    icon={<MoneyIcon className="h-10 w-10" />}
+                  />
+                  <MetricCard
+                    title="ORDERS TODAY"
+                    value={totalStats.totalOrders || 0}
+                    trend="Orders placed today"
+                    trendDirection="up"
+                    trendPercent={8}
+                    icon={<OrdersIcon className="h-10 w-10" />}
+                  />
+                  <MetricCard
+                    title="AVERAGE ORDER"
+                    value={`৳${Number((totalStats.totalRevenue || 0) / (totalStats.totalOrders || 1)).toFixed(2)}`}
+                    trend="Average order value"
+                    trendDirection="up"
+                    trendPercent={2}
+                    icon={<ChartIcon className="h-10 w-10" />}
+                  />
+                  <MetricCard
+                    title="ACTIVE MENU ITEMS"
+                    value={totalStats.totalProducts || 0}
+                    trend="Active food items"
+                    trendDirection="up"
+                    trendPercent={0}
+                    icon={<ProductsIcon className="h-10 w-10" />}
+                  />
                 </div>
-                <div className="h-48 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <p className="text-gray-500">Chart Placeholder</p>
+
+                <div className="grid gap-8 lg:grid-cols-3">
+                  <div className="lg:col-span-2">
+                    <SimpleChart data={chartData} labels={chartLabels} title="REVENUE BY MONTH" />
+                  </div>
+                  <RecentOrdersCard
+                    orders={recentOrders}
+                    onViewAll={() => setActiveTab('orders')}
+                  />
                 </div>
-                <div className="flex justify-around mt-6 text-xs text-gray-600 border-t border-gray-200 pt-6">
-                  {['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'].map((month) => (
-                    <span key={month}>{month}</span>
-                  ))}
+
+                <div className="rounded-lg border border-[#e5ddd2] bg-white p-4 sm:p-6">
+                  <h2 className="mb-6 text-xs font-bold uppercase tracking-wide text-gray-900">
+                    RECENT ORDERS
+                  </h2>
+                  <AdminTable
+                    columns={[
+                      { key: '_id', label: 'ORDER ID', render: (val) => `#${val?.slice(-5).toUpperCase() || 'N/A'}` },
+                      {
+                        key: 'shippingAddress',
+                        label: 'CUSTOMER',
+                        render: (val) => `${val?.firstName || 'Guest'} ${val?.lastName || ''}`.trim() || 'Guest',
+                      },
+                      { key: 'totalAmount', label: 'AMOUNT', render: (val) => `৳${Number(val || 0).toFixed(2)}` },
+                      { key: 'orderStatus', label: 'STATUS', render: (val) => val || 'Pending' },
+                      { key: 'createdAt', label: 'DATE', render: (val) => new Date(val).toLocaleDateString() },
+                    ]}
+                    data={recentOrders}
+                  />
                 </div>
               </div>
+            )}
 
-              {/* Recent Orders */}
-              <div className="border border-gray-200 p-6 rounded-lg h-fit">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-lg font-bold text-black">RECENT ORDERS</h2>
-                  <a href="#" className="text-xs font-semibold text-gray-600 hover:text-black">VIEW ALL</a>
-                </div>
-                <div className="space-y-4">
-                  {[
-                    { id: 1092, name: 'Alice Walker', amount: 145, status: 'PROCESSING' },
-                    { id: 1091, name: 'John Doe', amount: 85, status: 'SHIPPED' },
-                    { id: 1090, name: 'Emma Smith', amount: 210, status: 'DELIVERED' },
-                    { id: 1089, name: 'Michael Brown', amount: 45, status: 'PROCESSING' },
-                    { id: 1088, name: 'Sarah Jones', amount: 115, status: 'PENDING' },
-                  ].map((order) => (
-                    <div key={order.id} className="flex justify-between items-start border-b border-gray-200 pb-4">
-                      <div>
-                        <p className="font-semibold text-black text-sm">#{order.id}</p>
-                        <p className="text-xs text-gray-600">{order.name}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-black text-sm">${order.amount.toFixed(2)}</p>
-                        <p className="text-xs text-gray-600">{order.status}</p>
-                      </div>
+            {activeTab === 'orders' && (
+              <div className="space-y-6 bg-[#faf9f7] p-4 sm:p-6 lg:p-8">
+                <div className="rounded-lg border border-[#e5ddd2] bg-white p-4 sm:p-6">
+                  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <h2 className="text-xs font-bold uppercase tracking-wide text-gray-900">RECENT ORDERS</h2>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <select
+                        value={filterOrderStatus}
+                        onChange={(e) => setFilterOrderStatus(e.target.value)}
+                        className="rounded border border-[#e5ddd2] bg-white px-3 py-2 text-sm font-medium text-gray-900 focus:border-[#2d7c5f] focus:outline-none"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                      <select
+                        value={sortOrdersBy}
+                        onChange={(e) => setSortOrdersBy(e.target.value)}
+                        className="rounded border border-[#e5ddd2] bg-white px-3 py-2 text-sm font-medium text-gray-900 focus:border-[#2d7c5f] focus:outline-none"
+                      >
+                        <option value="date-desc">Newest First</option>
+                        <option value="date-asc">Oldest First</option>
+                        <option value="amount-desc">Highest Amount</option>
+                        <option value="amount-asc">Lowest Amount</option>
+                      </select>
                     </div>
-                  ))}
+                  </div>
+                  <AdminTable
+                    columns={orderColumns}
+                    data={getSortedOrders()}
+                    actions={(order) => (
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleViewOrderDetails(order)}
+                          className="rounded border border-[var(--color-border)] px-3 py-1 text-sm text-[var(--color-text)] hover:bg-[var(--color-background)]"
+                        >
+                          DETAILS
+                        </button>
+                        <select
+                          defaultValue={order.orderStatus}
+                          className="rounded border border-[var(--color-border)] bg-[var(--color-card-bg)] px-2 py-1 text-sm text-[var(--color-text)]"
+                          onChange={(e) => handleUpdateOrderStatus(order._id, e.target.value)}
+                          disabled={savingOrderId === order._id}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="processing">Processing</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="delivered">Delivered</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </div>
+                    )}
+                  />
                 </div>
               </div>
-            </div>
-          </div>
+            )}
+
+            {activeTab === 'products' && (
+              <div className="space-y-6 bg-[#faf9f7] p-4 sm:p-6 lg:p-8">
+                <div className="rounded-lg border border-[#e5ddd2] bg-white p-4 sm:p-6">
+                  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <h2 className="text-xs font-bold uppercase tracking-wide text-gray-900">PRODUCTS</h2>
+                    <select
+                      value={sortProductsBy}
+                      onChange={(e) => setSortProductsBy(e.target.value)}
+                      className="rounded border border-[#e5ddd2] bg-white px-3 py-2 text-sm font-medium text-gray-900 focus:border-[#2d7c5f] focus:outline-none"
+                    >
+                      <option value="name">Name (A-Z)</option>
+                      <option value="price-asc">Price: Low to High</option>
+                      <option value="price-desc">Price: High to Low</option>
+                      <option value="stock-asc">Stock: Low to High</option>
+                      <option value="stock-desc">Stock: High to Low</option>
+                    </select>
+                  </div>
+                  <AdminTable
+                    columns={productColumns}
+                    data={getSortedProducts()}
+                    actions={(product) => (
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/admin/products/${product._id}/edit`)}
+                          className="rounded border border-[var(--color-border)] px-3 py-1 text-sm text-[var(--color-text)] hover:bg-[var(--color-background)]"
+                        >
+                          EDIT
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProduct(product._id)}
+                          className="rounded border border-[var(--color-danger-light)] px-3 py-1 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger-light)]"
+                        >
+                          DELETE
+                        </button>
+                      </div>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'customers' && (
+              <div className="bg-[#faf9f7] p-4 sm:p-6 lg:p-8">
+                <div className="rounded-lg border border-[#e5ddd2] bg-white p-6">
+                  <h2 className="text-xs font-bold uppercase tracking-wide text-gray-900">CUSTOMERS</h2>
+                  <p className="mt-6 text-sm text-gray-600">Customer management coming soon...</p>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'settings' && (
+              <div className="bg-[#faf9f7] p-4 sm:p-6 lg:p-8">
+                <div className="rounded-lg border border-[#e5ddd2] bg-white p-6">
+                  <h2 className="text-xs font-bold uppercase tracking-wide text-gray-900">ANALYTICS</h2>
+                  <p className="mt-6 text-sm text-gray-600">Analytics coming soon...</p>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
-        {activeTab === 'products' && (
-          <div className="p-8">
-            <p className="text-gray-600">Product management features coming soon...</p>
-          </div>
-        )}
-
-        {activeTab === 'orders' && (
-          <div className="p-8">
-            <p className="text-gray-600">Order management features coming soon...</p>
-          </div>
-        )}
+        <OrderDetailsModal
+          order={selectedOrder}
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onStatusChange={handleModalStatusChange}
+        />
       </div>
     </div>
   )

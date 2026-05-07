@@ -40,7 +40,12 @@ export const createReview = async (req, res) => {
       orderStatus: { $in: ['shipped', 'delivered'] },
     })
 
-    const isVerified = !!purchasedOrder
+    if (!purchasedOrder) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only verified purchasers can review this product',
+      })
+    }
 
     // Create review
     const review = new Review({
@@ -49,7 +54,7 @@ export const createReview = async (req, res) => {
       rating,
       title,
       comment,
-      verified: isVerified,
+      verified: true,
     })
 
     await review.save()

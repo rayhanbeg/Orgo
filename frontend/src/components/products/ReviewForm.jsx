@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import reviewService from '../../services/reviewService'
 
 function ReviewForm({ productId, onReviewSubmitted }) {
@@ -15,7 +15,7 @@ function ReviewForm({ productId, onReviewSubmitted }) {
     const { name, value } = e.target
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'rating' ? parseInt(value) : value,
+      [name]: name === 'rating' ? parseInt(value, 10) : value,
     }))
   }
 
@@ -54,7 +54,7 @@ function ReviewForm({ productId, onReviewSubmitted }) {
         onReviewSubmitted()
       }
 
-      setTimeout(() => setSuccess(null), 3000)
+      setTimeout(() => setSuccess(null), 2500)
     } catch (err) {
       setError(err.message || 'Failed to submit review')
     } finally {
@@ -62,127 +62,78 @@ function ReviewForm({ productId, onReviewSubmitted }) {
     }
   }
 
-  const renderStarInput = () => {
-    return (
-      <div style={{ display: 'flex', gap: '8px', fontSize: '24px', marginBottom: '16px' }}>
-        {Array.from({ length: 5 }).map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => setFormData((prev) => ({ ...prev, rating: i + 1 }))}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: i < formData.rating ? '#FCD34D' : '#D1D5DB',
-              fontSize: '28px',
-              padding: 0,
-            }}
-          >
-            ★
-          </button>
-        ))}
-      </div>
-    )
-  }
-
   return (
-    <form onSubmit={handleSubmit} style={{ backgroundColor: '#F9FAFB', padding: '20px', borderRadius: '8px' }}>
-      <h3 style={{ color: '#1F2937', marginBottom: '16px' }}>Write a Review</h3>
-
-      {error && (
-        <div style={{ backgroundColor: '#FEE2E2', color: '#DC2626', padding: '12px', borderRadius: '4px', marginBottom: '16px' }}>
-          {error}
+    <form onSubmit={handleSubmit} className="form-shell">
+      <div className="form-shell-inner">
+        <div className="mb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-500">Review</p>
+          <h3 className="mt-3 text-2xl font-semibold tracking-tight text-neutral-950">Write a review</h3>
         </div>
-      )}
 
-      {success && (
-        <div style={{ backgroundColor: '#DCFCE7', color: '#166534', padding: '12px', borderRadius: '4px', marginBottom: '16px' }}>
-          {success}
+        {error && <div className="form-error mb-5">{error}</div>}
+        {success && <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div>}
+
+        <div className="space-y-5">
+          <div>
+            <label className="form-label">Rating</label>
+            <div className="flex flex-wrap gap-2">
+              {Array.from({ length: 5 }).map((_, i) => {
+                const active = i < formData.rating
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, rating: i + 1 }))}
+                    className={`h-11 w-11 rounded-full border transition ${
+                      active
+                        ? 'border-neutral-950 bg-neutral-950 text-white'
+                        : 'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-400'
+                    }`}
+                    aria-label={`Rate ${i + 1} star${i === 0 ? '' : 's'}`}
+                  >
+                    ★
+                  </button>
+                )
+              })}
+            </div>
+            <p className="form-help">Your rating: {formData.rating} out of 5</p>
+          </div>
+
+          <div>
+            <label className="form-label">Review title</label>
+            <input
+              type="text"
+              name="title"
+              value={formData.title}
+              onChange={handleInputChange}
+              placeholder="Summarize your experience"
+              maxLength="100"
+              className="form-input"
+              required
+            />
+            <p className="form-help">{formData.title.length}/100 characters</p>
+          </div>
+
+          <div>
+            <label className="form-label">Your review</label>
+            <textarea
+              name="comment"
+              value={formData.comment}
+              onChange={handleInputChange}
+              placeholder="Share your detailed thoughts about this product..."
+              maxLength="1000"
+              rows="5"
+              className="form-textarea"
+              required
+            />
+            <p className="form-help">{formData.comment.length}/1000 characters</p>
+          </div>
+
+          <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
+            {loading ? 'Submitting...' : 'Submit review'}
+          </button>
         </div>
-      )}
-
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{ display: 'block', fontWeight: 'bold', color: '#1F2937', marginBottom: '8px' }}>
-          Rating
-        </label>
-        {renderStarInput()}
-        <p style={{ fontSize: '12px', color: '#6B7280', margin: '0' }}>
-          Your rating: {formData.rating} out of 5
-        </p>
       </div>
-
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{ display: 'block', fontWeight: 'bold', color: '#1F2937', marginBottom: '8px' }}>
-          Review Title
-        </label>
-        <input
-          type="text"
-          name="title"
-          value={formData.title}
-          onChange={handleInputChange}
-          placeholder="Summarize your experience"
-          maxLength="100"
-          style={{
-            width: '100%',
-            padding: '10px',
-            border: '1px solid #D1D5DB',
-            borderRadius: '4px',
-            fontSize: '14px',
-            boxSizing: 'border-box',
-          }}
-          required
-        />
-        <p style={{ fontSize: '12px', color: '#6B7280', margin: '4px 0 0 0' }}>
-          {formData.title.length}/100 characters
-        </p>
-      </div>
-
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{ display: 'block', fontWeight: 'bold', color: '#1F2937', marginBottom: '8px' }}>
-          Your Review
-        </label>
-        <textarea
-          name="comment"
-          value={formData.comment}
-          onChange={handleInputChange}
-          placeholder="Share your detailed thoughts about this product..."
-          maxLength="1000"
-          rows="5"
-          style={{
-            width: '100%',
-            padding: '10px',
-            border: '1px solid #D1D5DB',
-            borderRadius: '4px',
-            fontSize: '14px',
-            fontFamily: 'Arial, sans-serif',
-            boxSizing: 'border-box',
-            resize: 'vertical',
-          }}
-          required
-        />
-        <p style={{ fontSize: '12px', color: '#6B7280', margin: '4px 0 0 0' }}>
-          {formData.comment.length}/1000 characters (minimum 10)
-        </p>
-      </div>
-
-      <button
-        type="submit"
-        disabled={loading}
-        style={{
-          backgroundColor: '#059669',
-          color: 'white',
-          padding: '10px 20px',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          fontWeight: 'bold',
-          opacity: loading ? 0.6 : 1,
-          width: '100%',
-        }}
-      >
-        {loading ? 'Submitting...' : 'Submit Review'}
-      </button>
     </form>
   )
 }

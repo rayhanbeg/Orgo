@@ -4,10 +4,10 @@ import { sendOrderConfirmationEmail, sendOrderStatusUpdateEmail } from '../utils
 
 export const createOrder = async (req, res) => {
   try {
-    const { items, shippingAddress, paymentMethod } = req.body
+    const { items, shippingAddress, paymentMethod, notes } = req.body
     const userId = req.user?.id || null
 
-    if (!items || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ success: false, message: 'Cart is empty' })
     }
 
@@ -16,6 +16,7 @@ export const createOrder = async (req, res) => {
     }
 
     let totalAmount = 0
+    const normalizedItems = []
 
     // Validate products and calculate total
     for (const item of items) {
@@ -31,20 +32,29 @@ export const createOrder = async (req, res) => {
         })
       }
 
-      totalAmount += product.price * item.quantity
+      const quantity = Number(item.quantity) || 1
+      totalAmount += product.price * quantity
+      normalizedItems.push({
+        productId: product._id,
+        name: product.name,
+        price: product.price,
+        quantity,
+        image: product.image,
+      })
 
       // Reduce stock
-      product.stock -= item.quantity
+      product.stock -= quantity
       await product.save()
     }
 
     const order = new Order({
       userId,
-      items,
+      items: normalizedItems,
       totalAmount,
       shippingAddress,
       paymentMethod: paymentMethod || 'cod',
       paymentStatus: 'pending',
+      notes: notes || '',
     })
 
     await order.save()
@@ -57,6 +67,7 @@ export const createOrder = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Order created successfully',
+      orderId: order._id,
       order,
     })
   } catch (error) {
@@ -87,9 +98,13 @@ export const getOrderById = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found' })
     }
 
-    // Check if user owns the order or is admin
-    if (order.userId && order.userId.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Unauthorized' })
+    if (order.userId) {
+      const isOwner = req.user && order.userId.toString() === req.user.id
+      const isAdmin = req.user?.role === 'admin'
+
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ success: false, message: 'Unauthorized' })
+      }
     }
 
     res.json({

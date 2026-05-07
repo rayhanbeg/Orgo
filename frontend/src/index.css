@@ -1,2 +1,238 @@
 @import "tailwindcss";
 
+:root {
+  /* Primary Colors */
+  --color-primary: #2d7c5f;
+  --color-primary-hover: #1f5c47;
+  --color-primary-light: #f0f9f6;
+  
+  
+  /* Text Colors */
+  --color-text: #1a1a1a;
+  --color-text-muted: #6b7280;
+  --color-text-light: #9ca3af;
+  
+  /* Borders */
+  --color-border: #e5e0d9;
+  --color-border-light: #f0ede7;
+  
+  /* Semantic Colors */
+  --color-white: #ffffff;
+  --color-success: #2d7c5f;
+  --color-success-light: #d1e8df;
+  --color-warning: #f59e0b;
+  --color-warning-light: #fef3c7;
+  --color-danger: #dc2626;
+  --color-danger-light: #fee2e2;
+  --color-info: #3b82f6;
+  --color-info-light: #dbeafe;
+  
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--color-text);
+  background: var(--color-white);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+  line-height: 1.6;
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+@layer components {
+  .container-fluid {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .form-shell {
+    @apply w-full max-w-2xl mx-auto;
+  }
+
+  .form-shell-inner {
+    @apply p-5 sm:p-8;
+  }
+
+  .form-title {
+    @apply text-3xl sm:text-4xl font-semibold text-center text-neutral-950 tracking-tight;
+  }
+
+  .form-subtitle {
+    @apply mt-2 text-center text-sm text-neutral-600;
+  }
+
+  .form-label {
+    @apply block text-sm font-semibold text-neutral-950 mb-2;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    @apply w-full rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-950 outline-none transition;
+    @apply placeholder:text-neutral-500;
+  }
+
+  .form-input:focus,
+  .form-select:focus,
+  .form-textarea:focus {
+    @apply border-[#2d7c5f] bg-white;
+  }
+
+  .form-textarea {
+    @apply min-h-32 resize-y;
+  }
+
+  .form-help {
+    @apply text-xs text-neutral-500 mt-2;
+  }
+
+  .form-error {
+    @apply rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700;
+  }
+
+  .form-grid {
+    @apply grid gap-4 sm:grid-cols-2;
+  }
+
+  .form-section {
+    @apply space-y-5;
+  }
+
+  .form-divider {
+    @apply border-t border-neutral-200 pt-5;
+  }
+
+  .form-inline {
+    @apply flex items-center gap-3;
+  }
+
+  .form-checkbox {
+    @apply h-4 w-4 rounded border-neutral-300 cursor-pointer;
+  }
+
+  .form-dropzone {
+    @apply rounded-lg border border-dashed border-neutral-300 bg-neutral-50 px-5 py-7 text-center transition;
+  }
+
+  .form-dropzone-active {
+    @apply border-neutral-950 bg-neutral-100;
+  }
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-lg bg-[#2d7c5f] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#1f5c47];
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-6 py-3 text-sm font-semibold text-neutral-900 transition hover:border-neutral-400;
+}
+
+.btn-text {
+  @apply text-[#2d7c5f] font-medium cursor-pointer hover:underline;
+}
+
+/* Admin & Dashboard Specific Styles */
+.admin-sidebar {
+  @apply bg-[var(--color-sidebar)] border-r border-[var(--color-border)];
+}
+
+.admin-sidebar-item {
+  @apply w-full text-left px-4 py-3 rounded-lg font-semibold transition text-[var(--color-text-muted)] hover:bg-[var(--color-border-light)];
+}
+
+.admin-sidebar-item.active {
+  @apply bg-[var(--color-primary)] text-white;
+}
+
+.admin-header {
+  @apply bg-white border-b border-[var(--color-border)];
+}
+
+.metric-card {
+  @apply bg-[var(--color-card-bg)] border border-[var(--color-border)] rounded-lg p-6;
+}
+
+.metric-card-value {
+  @apply text-3xl sm:text-4xl font-bold text-[var(--color-text)] my-2;
+}
+
+.metric-card-label {
+  @apply text-sm uppercase font-semibold text-[var(--color-text-muted)] tracking-wide;
+}
+
+.metric-card-trend {
+  @apply text-xs font-medium mt-3;
+}
+
+.metric-card-trend.up {
+  @apply text-[var(--color-success)];
+}
+
+.metric-card-trend.down {
+  @apply text-[var(--color-danger)];
+}
+
+.status-badge {
+  @apply px-3 py-1 rounded-full text-xs font-semibold;
+}
+
+.status-badge.delivered {
+  @apply bg-[var(--color-success-light)] text-[var(--color-success)];
+}
+
+.status-badge.processing {
+  @apply bg-[var(--color-warning-light)] text-[var(--color-warning)];
+}
+
+.status-badge.pending {
+  @apply bg-[var(--color-info-light)] text-[var(--color-info)];
+}
+
+.status-badge.cancelled {
+  @apply bg-[var(--color-danger-light)] text-[var(--color-danger)];
+}
+
+.status-badge.shipped {
+  @apply bg-purple-100 text-purple-700;
+}
+
+.data-table {
+  @apply w-full border-collapse;
+}
+
+.data-table thead {
+  @apply bg-[var(--color-sidebar)] border-b border-[var(--color-border)];
+}
+
+.data-table th {
+  @apply px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)];
+}
+
+.data-table td {
+  @apply px-6 py-4 border-b border-[var(--color-border-light)] text-sm;
+}
+
+.data-table tbody tr:hover {
+  @apply bg-[var(--color-primary-light)];
+}
+
+.profile-sidebar {
+  @apply bg-[var(--color-card-bg)] border border-[var(--color-border)] rounded-lg;
+}
+
+.profile-tab {
+  @apply w-full text-left px-4 py-3 border-b border-[var(--color-border)] font-semibold transition text-[var(--color-text-muted)] hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary)];
+}
+
+.profile-tab.active {
+  @apply text-[var(--color-primary)] border-b-2 border-[var(--color-primary)] bg-[var(--color-primary-light)];
+}

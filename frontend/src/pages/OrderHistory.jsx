@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { setOrders, setLoading, setError } from '../redux/slices/ordersSlice'
@@ -14,7 +14,7 @@ function OrderHistory() {
       try {
         const data = await orderService.getUserOrders()
         dispatch(setOrders(data.orders))
-      } catch (err) {
+      } catch {
         dispatch(setError('Failed to load orders'))
       }
     }
@@ -41,7 +41,7 @@ function OrderHistory() {
 
   return (
     <div className="bg-light py-8">
-      <div className="container mx-auto px-4">
+      <div className="container-fluid">
         <h1 className="text-3xl font-bold text-dark mb-8">Order History</h1>
 
         {loading && <p className="text-center text-gray-600">Loading orders...</p>}
@@ -69,7 +69,7 @@ function OrderHistory() {
                     </p>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-sm font-semibold mt-2 md:mt-0 ${getStatusColor(order.orderStatus)}`}>
-                    {order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}
+                    {(order.orderStatus || 'pending').charAt(0).toUpperCase() + (order.orderStatus || 'pending').slice(1)}
                   </span>
                 </div>
 
@@ -91,7 +91,7 @@ function OrderHistory() {
 
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-bold text-dark">
-                    ${order.totalAmount?.toFixed(2)}
+                    ৳{order.totalAmount?.toFixed(2)}
                   </span>
                   <Link
                     to={`/orders/${order._id}`}

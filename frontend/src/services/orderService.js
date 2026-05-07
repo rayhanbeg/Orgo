@@ -1,11 +1,12 @@
 import api from './api'
 
 export const orderService = {
-  createOrder: async (items, shippingAddress, paymentMethod = 'credit_card') => {
+  createOrder: async (items, shippingAddress, paymentMethod = 'credit_card', notes = '') => {
     const response = await api.post('/orders', {
       items,
       shippingAddress,
       paymentMethod,
+      notes,
     })
     return response.data
   },
