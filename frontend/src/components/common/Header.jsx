@@ -24,7 +24,6 @@ function Header() {
     event.preventDefault()
     const query = searchTerm.trim()
     if (!query) return
-
     navigate(`/products?search=${encodeURIComponent(query)}`)
   }
 
@@ -49,6 +48,7 @@ function Header() {
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/95 backdrop-blur">
+        {/* Desktop header (lg+) */}
         <div className="container-fluid hidden lg:block">
           <div className="flex h-16 items-center justify-between">
             <Link to="/" className="text-lg font-bold tracking-[0.18em] text-[#2d7c5f]">
@@ -56,6 +56,9 @@ function Header() {
             </Link>
 
             <nav className="flex items-center gap-8">
+              <NavLink to="/" className={linkClass} end>
+                Home
+              </NavLink>
               <NavLink to="/products" className={linkClass}>
                 Shop
               </NavLink>
@@ -140,6 +143,7 @@ function Header() {
           </div>
         </div>
 
+        {/* Mobile header (small devices) */}
         <div className="container-fluid lg:hidden">
           <div className="flex h-16 items-center justify-between">
             <Link to="/" className="text-lg font-bold tracking-[0.18em] text-[#2d7c5f]">
@@ -149,6 +153,15 @@ function Header() {
             <div className="flex items-center gap-2">
               {isAuthenticated ? (
                 <>
+                  {/* Admin Dashboard link – only on mobile and for admin users */}
+                  {user?.role === 'admin' && (
+                    <Link
+                      to="/admin"
+                      className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-3 py-2 text-[11px] font-semibold uppercase text-neutral-600 transition hover:border-neutral-950 hover:text-neutral-950"
+                    >
+                      Admin
+                    </Link>
+                  )}
                   <div className="max-w-[8.5rem] rounded-full border border-neutral-200 bg-neutral-50 px-3 py-2">
                     <p className="truncate text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
                       {displayName}
@@ -175,6 +188,7 @@ function Header() {
         </div>
       </header>
 
+      {/* Mobile bottom navigation (unchanged) */}
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-neutral-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(0,0,0,0.06)] lg:hidden">
         <div className="relative mx-auto grid max-w-7xl grid-cols-5 px-3 pt-2">
           <NavLink to="/" className={mobileNavClass} end>
