@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { logout } from '../../redux/slices/authSlice'
@@ -8,6 +9,7 @@ function Header() {
   const { totalQuantity } = useSelector((state) => state.cart)
   const dispatch = useDispatch()
   const navigate = useNavigate()
+  const [searchTerm, setSearchTerm] = useState('')
 
   if (location.pathname.startsWith('/admin')) {
     return null
@@ -16,6 +18,14 @@ function Header() {
   const handleLogout = () => {
     dispatch(logout())
     navigate('/')
+  }
+
+  const handleSearchSubmit = (event) => {
+    event.preventDefault()
+    const query = searchTerm.trim()
+    if (!query) return
+
+    navigate(`/products?search=${encodeURIComponent(query)}`)
   }
 
   const linkClass = ({ isActive }) =>
@@ -49,6 +59,9 @@ function Header() {
               <NavLink to="/products" className={linkClass}>
                 Shop
               </NavLink>
+              <NavLink to="/products#categories" className={linkClass}>
+                Shop by Category
+              </NavLink>
               {isAuthenticated && (
                 <>
                   <NavLink to="/profile" className={actionLinkClass}>
@@ -63,22 +76,32 @@ function Header() {
               )}
             </nav>
 
-            <div className="flex items-center gap-5">
-              <button
-                type="button"
-                className="text-neutral-600 transition hover:text-neutral-950"
-                aria-label="Search products"
-                onClick={() => navigate('/products')}
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            <div className="flex items-center gap-4">
+              <form onSubmit={handleSearchSubmit} className="hidden lg:block">
+                <label className="relative block">
+                  <span className="sr-only">Search products</span>
+                  <svg
+                    className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                  <input
+                    type="search"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search products"
+                    className="h-11 w-72 rounded-full border border-neutral-200 bg-neutral-50 pl-10 pr-4 text-sm text-neutral-900 transition placeholder:text-neutral-400 focus:border-neutral-950 focus:outline-none"
                   />
-                </svg>
-              </button>
+                </label>
+              </form>
 
               <Link
                 to="/cart"

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import adminService from '../services/adminService'
+import categoryService from '../services/categoryService'
 import orderService from '../services/orderService'
 import productService from '../services/productService'
 import MetricCard from '../components/admin/MetricCard'
@@ -17,7 +18,15 @@ import {
   ProductsIcon,
 } from '../components/common/Icons'
 
-const VALID_TABS = ['overview', 'orders', 'products', 'customers', 'settings']
+const VALID_TABS = ['overview', 'orders', 'products', 'categories', 'customers', 'settings']
+
+const emptyCategoryForm = {
+  key: '',
+  name: '',
+  description: '',
+  sortOrder: 0,
+  subcategories: '',
+}
 
 function AdminDashboard() {
   const navigate = useNavigate()
@@ -27,6 +36,7 @@ function AdminDashboard() {
   const [stats, setStats] = useState(null)
   const [orderStats, setOrderStats] = useState(null)
   const [products, setProducts] = useState([])
+  const [categories, setCategories] = useState([])
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -36,23 +46,28 @@ function AdminDashboard() {
   const [savingOrderId, setSavingOrderId] = useState(null)
   const [sortOrdersBy, setSortOrdersBy] = useState('date-desc')
   const [sortProductsBy, setSortProductsBy] = useState('name')
+  const [categoryForm, setCategoryForm] = useState(emptyCategoryForm)
+  const [editingCategoryId, setEditingCategoryId] = useState(null)
+  const [savingCategory, setSavingCategory] = useState(false)
   const [filterOrderStatus, setFilterOrderStatus] = useState('all')
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const fetchData = async () => {
     try {
-      const [dashboard, orderSummary, productList, orderList] = await Promise.all([
+      const [dashboard, orderSummary, productList, orderList, categoryList] = await Promise.all([
         adminService.getDashboardStats(),
         adminService.getOrderStats(),
         productService.getAllProducts(),
         orderService.getAllOrders(),
+        categoryService.getCategories(),
       ])
 
       setStats(dashboard)
       setOrderStats(orderSummary)
       setProducts(productList.products || [])
       setOrders(orderList.orders || [])
+      setCategories(categoryList.categories || [])
       setError(null)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load dashboard data')
@@ -66,6 +81,12 @@ function AdminDashboard() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const refreshCategories = async () => {
+    const categoryList = await categoryService.getCategories()
+    setCategories(categoryList.categories || [])
+    setError(null)
   }
 
   useEffect(() => {
@@ -105,6 +126,76 @@ function AdminDashboard() {
       await loadData()
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to delete product')
+    }
+  }
+
+  const resetCategoryForm = () => {
+    setCategoryForm(emptyCategoryForm)
+    setEditingCategoryId(null)
+  }
+
+  const handleCategoryChange = (e) => {
+    const { name, value } = e.target
+    setCategoryForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  const handleEditCategory = (category) => {
+    setEditingCategoryId(category._id)
+    setCategoryForm({
+      key: category.key || '',
+      name: category.name || '',
+      description: category.description || '',
+      sortOrder: category.sortOrder ?? 0,
+      subcategories: Array.isArray(category.subcategories) ? category.subcategories.join(', ') : '',
+    })
+    setActiveTab('categories')
+  }
+
+  const handleCategorySubmit = async (e) => {
+    e.preventDefault()
+
+    try {
+      setSavingCategory(true)
+      const payload = {
+        key: categoryForm.key,
+        name: categoryForm.name,
+        description: categoryForm.description,
+        sortOrder: Number(categoryForm.sortOrder) || 0,
+        subcategories: categoryForm.subcategories,
+      }
+
+      if (editingCategoryId) {
+        await categoryService.updateCategory(editingCategoryId, payload)
+      } else {
+        await categoryService.createCategory(payload)
+      }
+
+      resetCategoryForm()
+      await refreshCategories()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save category')
+    } finally {
+      setSavingCategory(false)
+    }
+  }
+
+  const handleDeleteCategory = async (category) => {
+    if (!window.confirm(`Delete ${category.name}?`)) return
+
+    try {
+      setSavingCategory(true)
+      await categoryService.deleteCategory(category._id)
+      if (editingCategoryId === category._id) {
+        resetCategoryForm()
+      }
+      await refreshCategories()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete category')
+    } finally {
+      setSavingCategory(false)
     }
   }
 
@@ -188,8 +279,28 @@ function AdminDashboard() {
   const productColumns = [
     { key: 'name', label: 'PRODUCT', render: (val) => val || 'N/A' },
     { key: 'price', label: 'PRICE', render: (val) => `৳${Number(val || 0).toFixed(2)}` },
-    { key: 'category', label: 'CATEGORY', render: (val) => val || 'Uncategorized' },
+    {
+      key: 'category',
+      label: 'CATEGORY',
+      render: (val, row) => {
+        const categoryLabel = categories.find((category) => category.key === val)?.name || val || 'Uncategorized'
+        const subcategoryLabel = row?.subcategory ? ` / ${row.subcategory}` : ''
+        return `${categoryLabel}${subcategoryLabel}`
+      },
+    },
     { key: 'stock', label: 'STOCK', render: (val) => val ?? 0 },
+  ]
+
+  const categoryColumns = [
+    { key: 'name', label: 'CATEGORY', render: (val, row) => val || row?.key || 'N/A' },
+    { key: 'key', label: 'KEY', render: (val) => val || 'N/A' },
+    { key: 'sortOrder', label: 'SORT', render: (val) => val ?? 0 },
+    {
+      key: 'subcategories',
+      label: 'SUBCATEGORIES',
+      render: (val) => (Array.isArray(val) && val.length > 0 ? val.join(', ') : 'None'),
+    },
+    { key: 'productCount', label: 'PRODUCTS', render: (val) => val ?? 0 },
   ]
 
   const orderColumns = [
@@ -240,10 +351,17 @@ function AdminDashboard() {
             activeTab === 'overview' ? 'DASHBOARD OVERVIEW'
               : activeTab === 'orders' ? 'ORDERS'
                 : activeTab === 'products' ? 'PRODUCTS'
+                  : activeTab === 'categories' ? 'CATEGORIES'
                   : activeTab === 'customers' ? 'CUSTOMERS'
                     : 'ANALYTICS'
           }
-          actionButton={activeTab === 'products' ? { label: 'Add Product', onClick: () => navigate('/admin/products/new') } : null}
+          actionButton={
+            activeTab === 'products'
+              ? { label: 'Add Product', onClick: () => navigate('/admin/products/new') }
+              : activeTab === 'categories'
+                ? { label: 'Add Category', onClick: resetCategoryForm }
+                : null
+          }
           onRefresh={loadData}
           isLoading={loading}
         />
@@ -435,6 +553,158 @@ function AdminDashboard() {
                       </div>
                     )}
                   />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'categories' && (
+              <div className="space-y-6 bg-[#faf9f7] p-4 sm:p-6 lg:p-8">
+                <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
+                  <div className="rounded-lg border border-[#e5ddd2] bg-white p-4 sm:p-6">
+                    <div className="mb-5">
+                      <h2 className="text-xs font-bold uppercase tracking-wide text-gray-900">
+                        {editingCategoryId ? 'EDIT CATEGORY' : 'ADD CATEGORY'}
+                      </h2>
+                      <p className="mt-2 text-sm text-gray-600">
+                        Manage category names, ordering, and subcategory options from one place.
+                      </p>
+                    </div>
+
+                    <form className="space-y-4" onSubmit={handleCategorySubmit}>
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          Key
+                        </label>
+                        <input
+                          name="key"
+                          value={categoryForm.key}
+                          onChange={handleCategoryChange}
+                          className="w-full rounded border border-[#e5ddd2] bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#2d7c5f] focus:outline-none disabled:bg-gray-50"
+                          placeholder="organic-snacks"
+                          disabled={Boolean(editingCategoryId)}
+                          required={!editingCategoryId}
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          The key is what products use internally. Keep it stable after products are assigned.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          Name
+                        </label>
+                        <input
+                          name="name"
+                          value={categoryForm.name}
+                          onChange={handleCategoryChange}
+                          className="w-full rounded border border-[#e5ddd2] bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#2d7c5f] focus:outline-none"
+                          placeholder="Organic Snacks"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          Sort Order
+                        </label>
+                        <input
+                          name="sortOrder"
+                          value={categoryForm.sortOrder}
+                          onChange={handleCategoryChange}
+                          type="number"
+                          className="w-full rounded border border-[#e5ddd2] bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#2d7c5f] focus:outline-none"
+                          placeholder="0"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          Subcategories
+                        </label>
+                        <textarea
+                          name="subcategories"
+                          value={categoryForm.subcategories}
+                          onChange={handleCategoryChange}
+                          className="min-h-28 w-full rounded border border-[#e5ddd2] bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#2d7c5f] focus:outline-none"
+                          placeholder="Citrus, Berries, Tropical"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          Description
+                        </label>
+                        <textarea
+                          name="description"
+                          value={categoryForm.description}
+                          onChange={handleCategoryChange}
+                          className="min-h-28 w-full rounded border border-[#e5ddd2] bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#2d7c5f] focus:outline-none"
+                          placeholder="Short category description"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        <button
+                          type="submit"
+                          disabled={savingCategory}
+                          className="rounded bg-[#2d7c5f] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#235844]"
+                        >
+                          {savingCategory ? 'Saving...' : editingCategoryId ? 'Save Category' : 'Create Category'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={resetCategoryForm}
+                          disabled={savingCategory}
+                          className="rounded border border-[#e5ddd2] px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-[#f5f2ed]"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div className="rounded-lg border border-[#e5ddd2] bg-white p-4 sm:p-6">
+                    <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h2 className="text-xs font-bold uppercase tracking-wide text-gray-900">
+                          CATEGORIES
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-600">
+                          Categories are sorted by sortOrder, then by name.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={resetCategoryForm}
+                        disabled={savingCategory}
+                        className="rounded border border-[#e5ddd2] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-700 transition hover:bg-[#f5f2ed]"
+                      >
+                        New Category
+                      </button>
+                    </div>
+                    <AdminTable
+                      columns={categoryColumns}
+                      data={categories}
+                      actions={(category) => (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditCategory(category)}
+                            className="rounded border border-[var(--color-border)] px-3 py-1 text-sm text-[var(--color-text)] hover:bg-[var(--color-background)]"
+                          >
+                            EDIT
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCategory(category)}
+                            className="rounded border border-[var(--color-danger-light)] px-3 py-1 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger-light)]"
+                          >
+                            DELETE
+                          </button>
+                        </div>
+                      )}
+                    />
+                  </div>
                 </div>
               </div>
             )}

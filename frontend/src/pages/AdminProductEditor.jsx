@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import categoryService from '../services/categoryService'
 import productService from '../services/productService'
 import uploadService from '../services/uploadService'
 
@@ -8,6 +9,7 @@ const emptyForm = {
   description: '',
   price: '',
   category: 'fruits',
+  subcategory: '',
   stock: '',
   certified: false,
   tags: '',
@@ -19,28 +21,52 @@ const emptyForm = {
   imagePublicId: '',
 }
 
-const categoryOptions = [
-  'fruits',
-  'vegetables',
-  'grains',
-  'dairy',
-  'oils',
-  'snacks',
-  'beverages',
-  'spices',
-]
-
 function AdminProductEditor() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEditMode = Boolean(id)
   const [formData, setFormData] = useState(emptyForm)
+  const [categories, setCategories] = useState([])
   const [imageFile, setImageFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState('')
   const [dragActive, setDragActive] = useState(false)
   const [loading, setLoading] = useState(isEditMode)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const data = await categoryService.getCategories()
+        const categoryList = data.categories || []
+        setCategories(categoryList)
+
+        if (!isEditMode && categoryList.length > 0) {
+          setFormData((prev) => ({
+            ...prev,
+            category: prev.category || categoryList[0].key,
+          }))
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || 'Failed to load categories')
+      }
+    }
+
+    void loadCategories()
+  }, [isEditMode])
+
+  useEffect(() => {
+    if (categories.length === 0) return
+
+    const hasSelectedCategory = categories.some((category) => category.key === formData.category)
+    if (!hasSelectedCategory) {
+      setFormData((prev) => ({
+        ...prev,
+        category: categories[0].key,
+        subcategory: '',
+      }))
+    }
+  }, [categories, formData.category])
 
   const loadProduct = useCallback(async () => {
     if (!id) return
@@ -55,6 +81,7 @@ function AdminProductEditor() {
         description: product.description || '',
         price: product.price ?? '',
         category: product.category || 'fruits',
+        subcategory: product.subcategory || '',
         stock: product.stock ?? '',
         certified: !!product.certified,
         tags: Array.isArray(product.tags) ? product.tags.join(', ') : '',
@@ -97,8 +124,12 @@ function AdminProductEditor() {
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
+      ...(name === 'category' ? { subcategory: '' } : {}),
     }))
   }
+
+  const selectedCategory = categories.find((category) => category.key === formData.category)
+  const availableSubcategories = selectedCategory?.subcategories || []
 
   const pickFile = (file) => {
     if (!file) return
@@ -262,9 +293,27 @@ function AdminProductEditor() {
                       onChange={handleChange}
                       className="form-select"
                     >
-                      {categoryOptions.map((option) => (
+                      {categories.map((option) => (
+                        <option key={option.key} value={option.key}>
+                          {option.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="form-label">Subcategory</label>
+                    <select
+                      name="subcategory"
+                      value={formData.subcategory}
+                      onChange={handleChange}
+                      className="form-select"
+                      disabled={availableSubcategories.length === 0}
+                    >
+                      <option value="">No subcategory</option>
+                      {availableSubcategories.map((option) => (
                         <option key={option} value={option}>
-                          {option.charAt(0).toUpperCase() + option.slice(1)}
+                          {option}
                         </option>
                       ))}
                     </select>

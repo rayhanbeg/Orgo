@@ -1,12 +1,13 @@
 import api from './api'
 
 export const productService = {
-  getAllProducts: async (category = 'all', search = '', sort = 'newest') => {
+  getAllProducts: async (category = 'all', search = '', sort = 'recommended', subcategory = '') => {
     const response = await api.get('/products', {
       params: {
         category: category !== 'all' ? category : undefined,
         search: search || undefined,
-        sort,
+        sort: sort || undefined,
+        subcategory: subcategory && subcategory !== 'all' ? subcategory : undefined,
       },
     })
     return response.data

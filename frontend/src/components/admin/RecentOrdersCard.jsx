@@ -20,7 +20,7 @@ function RecentOrdersCard({ orders = [], onViewAll }) {
         <h2 className="metric-card-label text-base">RECENT ORDERS</h2>
         <button
           onClick={onViewAll}
-          className="text-sm font-semibold text-[var(--color-primary)] hover:underline"
+          className="text-sm font-semibold hover:underline"
         >
           View All
         </button>

@@ -21,12 +21,16 @@ const toBoolean = (value) => {
 
 export const getAllProducts = async (req, res) => {
   try {
-    const { category, search, sort } = req.query
+    const { category, subcategory, search, sort } = req.query
 
     let filter = {}
 
     if (category && category !== 'all') {
       filter.category = category
+    }
+
+    if (subcategory && subcategory !== 'all') {
+      filter.subcategory = subcategory
     }
 
     if (search) {
@@ -36,12 +40,12 @@ export const getAllProducts = async (req, res) => {
       ]
     }
 
-    let sortObj = {}
+    let sortObj = { createdAt: -1 }
     if (sort === 'price-asc') {
       sortObj = { price: 1 }
     } else if (sort === 'price-desc') {
       sortObj = { price: -1 }
-    } else if (sort === 'newest') {
+    } else if (sort === 'newest' || sort === 'recommended') {
       sortObj = { createdAt: -1 }
     } else if (sort === 'rating') {
       sortObj = { rating: -1 }
@@ -81,6 +85,7 @@ export const createProduct = async (req, res) => {
       description,
       price,
       category,
+      subcategory,
       image,
       imagePublicId,
       stock,
@@ -101,6 +106,7 @@ export const createProduct = async (req, res) => {
       description,
       price,
       category,
+      subcategory: subcategory || '',
       image,
       imagePublicId: imagePublicId || null,
       stock: stock || 0,
@@ -132,6 +138,7 @@ export const updateProduct = async (req, res) => {
       description,
       price,
       category,
+      subcategory,
       image,
       imagePublicId,
       stock,
@@ -163,6 +170,7 @@ export const updateProduct = async (req, res) => {
         description: description ?? existingProduct.description,
         price: price ?? existingProduct.price,
         category: category ?? existingProduct.category,
+        subcategory: subcategory ?? existingProduct.subcategory,
         image: image ?? existingProduct.image,
         imagePublicId: imagePublicId ?? existingProduct.imagePublicId,
         stock: stock ?? existingProduct.stock,

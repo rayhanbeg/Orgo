@@ -3,7 +3,7 @@ import React from 'react'
 function AdminTable({ columns, data = [], loading = false, actions = null }) {
   if (loading) {
     return (
-      <div className="text-center py-8 text-[var(--color-text-muted)]">
+      <div className="text-center py-8">
         <p>Loading data...</p>
       </div>
     )
@@ -11,7 +11,7 @@ function AdminTable({ columns, data = [], loading = false, actions = null }) {
 
   if (!data || data.length === 0) {
     return (
-      <div className="text-center py-8 text-[var(--color-text-muted)]">
+      <div className="text-center py-8">
         <p>No data available</p>
       </div>
     )
