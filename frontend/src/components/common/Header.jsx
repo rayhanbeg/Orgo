@@ -59,9 +59,6 @@ function Header() {
               <NavLink to="/products" className={linkClass}>
                 Shop
               </NavLink>
-              <NavLink to="/products#categories" className={linkClass}>
-                Shop by Category
-              </NavLink>
               {isAuthenticated && (
                 <>
                   <NavLink to="/profile" className={actionLinkClass}>

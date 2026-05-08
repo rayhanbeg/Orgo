@@ -34,7 +34,7 @@ function AdminSidebar({ activeTab, setActiveTab, ordersCount, productsCount }) {
     { id: 'products', label: 'Products', icon: ProductsIcon, count: productsCount },
     { id: 'categories', label: 'Categories', icon: DashboardIcon },
     { id: 'customers', label: 'Customers', icon: UsersIcon },
-    { id: 'settings', label: 'Analytics', icon: ChartIcon },
+    { id: 'analytics', label: 'Analytics', icon: ChartIcon },
   ]
 
   return (

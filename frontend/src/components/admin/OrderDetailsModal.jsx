@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { CloseIcon } from '../common/Icons'
+import Modal from 'react-modal'
+import { X, Loader } from 'lucide-react'
 
 function OrderDetailsModal({ order, isOpen, onClose, onStatusChange }) {
   const [isUpdating, setIsUpdating] = useState(false)
 
-  if (!isOpen || !order) return null
+  if (!order) return null
 
   const handleStatusChange = async (newStatus) => {
     setIsUpdating(true)
@@ -13,6 +14,17 @@ function OrderDetailsModal({ order, isOpen, onClose, onStatusChange }) {
     } finally {
       setIsUpdating(false)
     }
+  }
+
+  const getStatusColor = (status) => {
+    const colorMap = {
+      pending: '#f59e0b',
+      processing: '#3b82f6',
+      shipped: '#a855f7',
+      delivered: '#10b981',
+      cancelled: '#ef4444',
+    }
+    return colorMap[status?.toLowerCase()] || '#6b7280'
   }
 
   const getStatusBadgeClass = (status) => {
@@ -27,14 +39,22 @@ function OrderDetailsModal({ order, isOpen, onClose, onStatusChange }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 sm:p-8">
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      className="outline-none"
+      overlayClassName="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4"
+      contentLabel={`Order #${order._id?.slice(-6).toUpperCase()}`}
+      ariaHideApp={false}
+    >
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 sm:p-8">
         {/* Close button */}
         <button
           onClick={onClose}
           className="absolute right-6 top-6 inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100"
+          aria-label="Close modal"
         >
-          <CloseIcon className="h-5 w-5" />
+          <X className="h-5 w-5 text-gray-600" />
         </button>
 
         {/* Header */}
@@ -136,21 +156,28 @@ function OrderDetailsModal({ order, isOpen, onClose, onStatusChange }) {
         {/* Status Update */}
         <div className="border-t border-gray-200 pt-6">
           <h3 className="mb-4 text-lg font-semibold text-gray-900">Update Status</h3>
-          <select
-            defaultValue={order.orderStatus}
-            onChange={(e) => handleStatusChange(e.target.value)}
-            disabled={isUpdating}
-            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 disabled:opacity-50"
-          >
-            <option value="pending">Pending</option>
-            <option value="processing">Processing</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <select
+              value={order.orderStatus}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              disabled={isUpdating}
+              className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 disabled:opacity-50"
+            >
+              <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            {isUpdating && (
+              <div className="flex items-center gap-2">
+                <Loader className="h-4 w-4 animate-spin text-gray-600" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
